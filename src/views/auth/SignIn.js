@@ -97,7 +97,7 @@ const SignIn = ({ history }) => {
                 'custom:device_address': accountDevices.items[0].device.address,
                 'custom:ens_name': ensLabel,
                 'custom:named_devices': JSON.stringify({'OG device': accountDevices.items[0].device.address}),
-                'custom:encrypted_pk2': JSON.stringify(store),
+                'custom:encrypted_ks': JSON.stringify(store),
               });
               const jsonse = JSON.stringify(
                 {

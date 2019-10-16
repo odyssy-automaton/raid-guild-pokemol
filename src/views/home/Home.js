@@ -113,7 +113,7 @@ const Home = ({ client, history }) => {
               
               <div className="Intro">
                 <h1>Raid Guild</h1>
-                <p>⚔️ A dao for builders to form Raid Parties and team up on epic boss fights (open source web3 projects)</p>
+                <p><span role="img" aria-label="swords for battle">⚔️</span> A dao for builders to form Raid Parties and team up on epic boss fights (open source web3 projects)</p>
               </div>
               <div className="Chart" style={{ width: '100%', height: '33vh' }}>
                 <ResponsiveContainer>

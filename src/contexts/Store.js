@@ -14,6 +14,7 @@ import WethService from '../utils/WethService';
 import Web3Service from '../utils/Web3Service';
 import McDaoService from '../utils/McDaoService';
 import BcProcessorService from '../utils/BcProcessorService';
+import { WalletStatuses, currentStatus } from '../utils/WalletStatus';
 
 export const CurrentUserContext = createContext();
 export const CurrentWalletContext = createContext();
@@ -35,6 +36,7 @@ const Store = ({ children }) => {
     devices: null,
     _txList: [],
     addrByBelegateKey: null,
+    status: WalletStatuses.Unknown
   });
 
   // const [name, setName] = useState('MetaCartel DAO');
@@ -128,7 +130,7 @@ const Store = ({ children }) => {
       // these are set to zero every interval, maybe needed when user logs out
       let ethWei = 0;
       let eth = 0;
-      let state = 'Started';
+      let state = WalletStatuses.Unknown;
       setLoading(true)
 
       // state.account will be undefined if not connected
@@ -137,33 +139,33 @@ const Store = ({ children }) => {
       //     could i check earlier that there is no account info
       //     not with getConnectedDevices because it errors before account connected
       if (sdk && sdk.state.account) {
-        console.log('connected state', sdk.state);
+        //console.log('connected state', sdk.state);
 
         ethWei = (sdk && sdk.state.account.balance.real.toString()) || 0;
         eth = web3Service.fromWei(ethWei);
         // state.account.state undefined if still connecting?
-        // will be 'Created' or 'Delpoyed'
-        setLoading(false)
 
-        state = (sdk && sdk.state.account.state);
+        setLoading(false)
+        
         // check acount devices on sdk
         accountDevices = await sdk.getConnectedAccountDevices();
-        
+        // will be 'Created' or 'Delpoyed'
+        state = (sdk && sdk.state.account.state);
+        //console.log('when connected?', sdk && sdk.state.account.state);
         // set delay to 10 seconds after sdk balance is updated
         setDelay(10000);
       } else {
-        console.log('not connected, try again', sdk);
-        state = 'Connecting';
+        //console.log('not connected, try again', sdk);
+        state = WalletStatuses.Connecting;
 
         setNumTries(numTries + 1);
         // console.log('tries', numTries);
         // if sdk is not connected withen 5 seconds it probably is a new account
         // should be loading durring this?
         // TODO: need a better way to check this
-        if (numTries === 5) {
-          state = 'Not Connected';
+        if (numTries >= 5) {
+          state = WalletStatuses.NotConnected;
           setLoading(false)
-          
 
           setDelay(10000);
         }
@@ -179,6 +181,8 @@ const Store = ({ children }) => {
         }
       }
 
+      const status = currentStatus(currentWallet, currentUser, state);
+      
       // set state
       setCurrentWallet({
         ...currentWallet,
@@ -191,6 +195,7 @@ const Store = ({ children }) => {
           accountDevices,
           _txList,
           addrByBelegateKey,
+          status,
         },
       });
     }

@@ -102,7 +102,7 @@ const Advanced = () => {
               console.log('currentUser', currentUser);
 
               const key = web3Service.decryptKeyStore(
-                currentUser.attributes['custom:encrypted_pk2'],
+                currentUser.attributes['custom:encrypted_ks'],
                 values.password,
               );
               console.log('key', key);

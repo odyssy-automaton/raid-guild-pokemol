@@ -10,7 +10,7 @@ import {
 import config from '../config';
 
 import useInterval from '../utils/PollingUtil';
-import WethService from '../utils/WethService';
+import TokenService from '../utils/TokenService';
 import Web3Service from '../utils/Web3Service';
 import McDaoService from '../utils/McDaoService';
 import BcProcessorService from '../utils/BcProcessorService';
@@ -20,6 +20,7 @@ export const CurrentUserContext = createContext();
 export const CurrentWalletContext = createContext();
 // export const NameContext = createContext('MetaCartel DAO');
 export const LoaderContext = createContext(false);
+export const ModalContext = createContext();
 export const RefreshContext = createContext();
 
 // main store of global state
@@ -29,15 +30,18 @@ const Store = ({ children }) => {
   // stores user wallet balances and shares
   const [currentWallet, setCurrentWallet] = useState({
     eth: 0,
-    weth: 0,
-    allowamce: 0,
+    tokenBalance: 0,
+    allowance: 0,
     shares: 0,
     state: null,
     devices: null,
     _txList: [],
     addrByBelegateKey: null,
-    status: WalletStatuses.Unknown
+    status: WalletStatuses.Unknown,
   });
+
+  // modal state for open once
+  const [hasOpened, setHasOpened] = useState({});
 
   // const [name, setName] = useState('MetaCartel DAO');
   const [loading, setLoading] = useState(false);
@@ -46,7 +50,6 @@ const Store = ({ children }) => {
   // track number of times to do a 1 second update
   const [numTries, setNumTries] = useState(0);
 
-  const wethService = new WethService();
   const web3Service = new Web3Service();
   const daoService = new McDaoService();
   const bcProcessorService = new BcProcessorService();
@@ -62,6 +65,7 @@ const Store = ({ children }) => {
         // so grab attributes from here
         const attributes = await Auth.currentUserInfo();
         const realuser = { ...user, ...{ attributes: attributes.attributes } };
+
         setCurrentUser(realuser);
 
         // attach sdk
@@ -109,20 +113,24 @@ const Store = ({ children }) => {
       );
 
       // get weth balance and allowance of contract
-      const wethWei = await wethService.balanceOf(acctAddr);
-      const allowanceWei = await wethService.allowance(
+      // const wethWei = await tokenService.balanceOf(acctAddr);
+      const approvedToken = await daoService.approvedToken();
+      const tokenService = new TokenService(approvedToken);
+      const tokenBalanceWei = await tokenService.balanceOf(acctAddr);
+      const allowanceWei = await tokenService.allowance(
         acctAddr,
         daoService.contractAddr,
       );
+      // convert from wei to eth
+      const tokenBalance = web3Service.fromWei(tokenBalanceWei);
+      const allowance = web3Service.fromWei(allowanceWei);
 
       // get member shares of dao contract
       const member = await daoService.members(addrByBelegateKey);
       // shares will be 0 if not a member, could also be 0 if rage quit
       // TODO: check membersheip a different way
       const shares = parseInt(member.shares);
-      // convert from wei to eth
-      const weth = web3Service.fromWei(wethWei);
-      const allowance = web3Service.fromWei(allowanceWei);
+
       // use attached sdk
       const sdk = currentUser.sdk;
 
@@ -131,7 +139,7 @@ const Store = ({ children }) => {
       let ethWei = 0;
       let eth = 0;
       let state = WalletStatuses.Unknown;
-      setLoading(true)
+      setLoading(true);
 
       // state.account will be undefined if not connected
       // should be loading durring this?
@@ -145,12 +153,12 @@ const Store = ({ children }) => {
         eth = web3Service.fromWei(ethWei);
         // state.account.state undefined if still connecting?
 
-        setLoading(false)
-        
+        setLoading(false);
+
         // check acount devices on sdk
         accountDevices = await sdk.getConnectedAccountDevices();
         // will be 'Created' or 'Delpoyed'
-        state = (sdk && sdk.state.account.state);
+        state = sdk && sdk.state.account.state;
         //console.log('when connected?', sdk && sdk.state.account.state);
         // set delay to 10 seconds after sdk balance is updated
         setDelay(10000);
@@ -165,7 +173,7 @@ const Store = ({ children }) => {
         // TODO: need a better way to check this
         if (numTries >= 5) {
           state = WalletStatuses.NotConnected;
-          setLoading(false)
+          setLoading(false);
 
           setDelay(10000);
         }
@@ -182,12 +190,14 @@ const Store = ({ children }) => {
       }
 
       const status = currentStatus(currentWallet, currentUser, state);
-      
+
       // set state
       setCurrentWallet({
         ...currentWallet,
         ...{
-          weth,
+          // tokenBalance: +tokenBalance,
+          // allowance: +allowance,
+          tokenBalance,
           allowance,
           eth,
           state,
@@ -202,19 +212,19 @@ const Store = ({ children }) => {
   }, delay);
 
   return (
-    // <NameContext.Provider value={[name, setName]}>
     <LoaderContext.Provider value={[loading, setLoading]}>
-      <RefreshContext.Provider value={[delay, setDelay]}>
-        <CurrentUserContext.Provider value={[currentUser, setCurrentUser]}>
-          <CurrentWalletContext.Provider
-            value={[currentWallet, setCurrentWallet]}
-          >
-            {children}
-          </CurrentWalletContext.Provider>
-        </CurrentUserContext.Provider>
-      </RefreshContext.Provider>
+      <ModalContext.Provider value={[hasOpened, setHasOpened]}>
+        <RefreshContext.Provider value={[delay, setDelay]}>
+          <CurrentUserContext.Provider value={[currentUser, setCurrentUser]}>
+            <CurrentWalletContext.Provider
+              value={[currentWallet, setCurrentWallet]}
+            >
+              {children}
+            </CurrentWalletContext.Provider>
+          </CurrentUserContext.Provider>
+        </RefreshContext.Provider>
+      </ModalContext.Provider>
     </LoaderContext.Provider>
-    // </NameContext.Provider>
   );
 };
 

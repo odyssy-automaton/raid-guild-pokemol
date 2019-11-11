@@ -1,5 +1,7 @@
 import Web3Service from './Web3Service';
 const web3Service = new Web3Service();
+const minDevices = 1; // first device and extention
+const minDeployEth = 0.05; // first device and extention
 
 export const WalletStatuses = {
   Unknown: 'Unknown',
@@ -9,6 +11,7 @@ export const WalletStatuses = {
   UnDeployedNeedsDevices: 'Not Deployed Needs Devices',
   UnDeployed: 'Not Deployed',
   LowGas: 'Low Gas',
+  LowGasForDeploy: 'Low Gas For Deploy',
   DeployedNeedsDevices: 'Deployed Needs Devices',
   DeployedNewDevice: 'Deployed New Device',
   Deployed: 'Deployed',
@@ -17,7 +20,6 @@ export const WalletStatuses = {
 export const currentStatus = (currentWallet, currentUser, state = null) => {
   const _accountDevices = currentWallet.accountDevices;
   const _state = state || currentWallet.state || '';
-  console.log('_accountDevices', _accountDevices);
   // NotConnected user should see signup flow
   if (_state === WalletStatuses.NotConnected) {
     return WalletStatuses.NotConnected;
@@ -29,10 +31,14 @@ export const currentStatus = (currentWallet, currentUser, state = null) => {
   }
 
   // UnDeployed user needs to deploy wallet
+
   if (
     _accountDevices &&
-    _accountDevices.items.length > 1 &&
-    _state === 'Created'
+    _accountDevices.items.length >= minDevices &&
+    _state === 'Created' &&
+    web3Service.fromWei(
+      currentUser.sdk.state.account.balance.real.toString(),
+    ) >= minDeployEth
   ) {
     return WalletStatuses.UnDeployed;
   }
@@ -41,21 +47,31 @@ export const currentStatus = (currentWallet, currentUser, state = null) => {
   if (
     _state === 'Created' &&
     web3Service.fromWei(currentUser.sdk.state.account.balance.real.toString()) <
-      0.001
+      minDeployEth
+  ) {
+    return WalletStatuses.LowGasForDeploy;
+  }
+
+  // LowGas user needs to add gas
+  if (
+    _state === 'Deployed' &&
+    web3Service.fromWei(currentUser.sdk.state.account.balance.real.toString()) <
+      0.01
   ) {
     return WalletStatuses.LowGas;
   }
 
   // UnDeployedNeedsDevices user needs to add at least one recovery
-  if (_state === 'Created' && !_accountDevices) {
-    return WalletStatuses.UnDeployedNeedsDevices;
-  }
+  // Not using for now
+  // if (_state === 'Created' && !_accountDevices) {
+  //   return WalletStatuses.UnDeployedNeedsDevices;
+  // }
 
   // DeployedNeedsDevices user has deployed but needs another device option
   if (
     _state === 'Deployed' &&
     _accountDevices &&
-    _accountDevices.items.length < 2
+    _accountDevices.items.length < minDevices
   ) {
     return WalletStatuses.DeployedNeedsDevices;
   }
